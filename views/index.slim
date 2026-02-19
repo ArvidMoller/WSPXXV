@@ -2,5 +2,18 @@ section
     h2 Book room
 
     form action="/rooms/search" method="post"
-        input type="text" name="room_search" placeholder="Search room"
+        input type="text" name="query" placeholder="Search room"
         input type="submit" value="Search"
+
+    hr
+
+
+    - bookings = session[:bookings]
+    - if bookings != nil
+        - bookings.each do |booking|
+            h3 #{booking["room_name"]}
+            p Booked by #{booking["user_name"]} for use in #{booking["reason"]} between #{booking["start_time"]} and #{booking["end_time"]}.
+            p Category: #{booking["category"]}
+            
+            hr
+            br
