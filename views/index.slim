@@ -1,8 +1,37 @@
+form action="/logout" method="post"
+    input type="submit" value="Logout"
+hr
+
 section
     h2 Book room
 
+    form action="/user_room_rel" method="post"
+        select name="room" id="room"
+            option value="" selected="selected" disabled="selected" Select room
+            - @rooms.each do |room|
+                option value="#{room["id"]}" #{room["name"]}
+
+        select name="booking_category" id="booking_category"
+            option value="" selected="selected" disabled="selected" Select category
+            - @booking_category.each do |category|
+                option value="#{category["id"]}" #{category["category"]}
+        
+        input type="text" name="reason" placeholder="Reason for booking"
+
+        label  Start time: 
+        input type="datetime-local" name="start_time"
+
+        label  End time: 
+        input type="datetime-local" name="end_time"
+
+        input type="submit" value="Book!"
+
+    br 
+    hr
+
+
     form action="/rooms/search" method="post"
-        input type="text" name="query" placeholder="Search room"
+        input type="text" name="query" placeholder="Search bookings"
         input type="submit" value="Search"
 
     hr
@@ -17,3 +46,8 @@ section
             
             hr
             br
+
+
+h3 Delete account
+form action="/user/#{session[:user]["id"]}/delete" method="post"
+    input type="submit" value="Delete account"

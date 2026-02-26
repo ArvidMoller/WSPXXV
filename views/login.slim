@@ -1,0 +1,23 @@
+h3 Login
+form action="/login" method="post" 
+    input type="text" name="username" placeholder="Username"
+    input type="password" name="password" placeholder="Password"
+    input type="submit" value="Login"
+
+p #{session[:login_message]}
+
+hr 
+
+h3 New user
+form action="/user/add" method="post"
+    input type="text" name="username" placeholder="Username"
+    input type="password" name="password" placeholder="Password"
+    input type="password" name="password_confirm" placeholder="Confirm password"
+
+    label for="teacher" Teacher
+    input type="checkbox" name="teacher"
+
+    input type="submit" value="Create new user"
+
+p #{session[:user_message]}
+hr

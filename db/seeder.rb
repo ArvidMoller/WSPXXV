@@ -69,6 +69,7 @@ def create_tables(db)
 end
 
 def populate_tables(db)
+  db.execute('INSERT INTO rooms (name) VALUES ("Tempel of Silence")')
   db.execute('INSERT INTO rooms (name) VALUES ("204")')
   db.execute('INSERT INTO rooms (name) VALUES ("213")')
   db.execute('INSERT INTO rooms (name) VALUES ("215")')
@@ -93,21 +94,46 @@ def populate_tables(db)
   db.execute('INSERT INTO rooms (name) VALUES ("Lanlab")')
   db.execute('INSERT INTO rooms (name) VALUES ("Musikrum")')
   db.execute('INSERT INTO rooms (name) VALUES ("Musikstudio")')
-  db.execute('INSERT INTO rooms (name) VALUES ("Tempel of Silence")')
 
   db.execute('INSERT INTO room_category (category) VALUES ("Klassrum")')
   db.execute('INSERT INTO room_category (category) VALUES ("Kemisal")')
   db.execute('INSERT INTO room_category (category) VALUES ("Grupprum")')
+  db.execute('INSERT INTO room_category (category) VALUES ("Annat")')
 
   db.execute('INSERT INTO booking_category (category) VALUES ("Lektion")')
   db.execute('INSERT INTO booking_category (category) VALUES ("Klubbverksamhet")')
-
-  db.execute('INSERT INTO users (name, pwd_digest, teacher) VALUES ("Arvid Möller", "test1", 1)')
-  db.execute('INSERT INTO users (name, pwd_digest, teacher) VALUES ("Theodor Joahnsson", "test2", 0)')
   
   # Bokningar
   db.execute('INSERT INTO user_room_rel (u_id, r_id, reason, start_time, end_time, booking_category) VALUES (1, 1, "Kemilektion", "2022-10-18-15-00-00", "2022-10-18-16-00-00", 1)')
   db.execute('INSERT INTO user_room_rel (u_id, r_id, reason, start_time, end_time, booking_category) VALUES (2, 2, "Filmklubb-möte", "2023-01-20-15-00-00", "2023-01-20-16-00-00", 2)')
+
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (1, 3)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (2, 1)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (3, 1)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (4, 1)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (5, 1)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (6, 1)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (7, 1)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (8, 1)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (9, 1)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (10, 1)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (11, 3)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (11, 1)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (12, 1)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (13, 1)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (14, 1)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (15, 4)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (16, 4)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (17, 1)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (18, 1)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (19, 1)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (20, 1)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (21, 2)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (22, 3)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (23, 1)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (24, 4)')
+  db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (25, 4)')
+
 end
 
 
