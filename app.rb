@@ -74,84 +74,88 @@ end
 
 
 post("/login") do
-    db = load_db("databas")
+  db = load_db("databas")
 
-    session.delete(:user_message)
-    session.delete(:login_message)
+  session.delete(:user_message)
+  session.delete(:login_message)
 
-    username = params[:username]
-    password = params[:password]
+  username = params[:username]
+  password = params[:password]
 
-    if username != "" && password != ""
-        user = db.execute("SELECT * FROM users WHERE name = ?", [username]).first
-        if user != nil && BCrypt::Password.new(user["pwd_digest"]) == password
-            session[:user] = user
-            redirect("/index")
-        else
-            session[:login_message] = "Incorrect username or password"
-            redirect("/")
-        end
+  if username != "" && password != ""
+    user = db.execute("SELECT * FROM users WHERE name = ?", [username]).first
+    if user != nil && BCrypt::Password.new(user["pwd_digest"]) == password
+      session[:user] = user
+      redirect("/index")
     else
-        session[:login_message] = "Incorrect username or password"
-        redirect("/")
+      session[:login_message] = "Incorrect username or password"
+      redirect("/")
     end
+  else
+    session[:login_message] = "Incorrect username or password"
+    redirect("/")
+  end
 end
 
 
 post("/logout") do 
-    session.clear
+  session.clear
 
-    redirect("/")
+  redirect("/")
 end
 
 
 post("/user/add") do
-    username = params[:username]
-    password = params[:password]
-    password_confirm = params[:password_confirm]
-    teacher = params[:teacher]
-    p teacher
+  username = params[:username]
+  password = params[:password]
+  password_confirm = params[:password_confirm]
+  teacher = params[:teacher]
+  p teacher
 
-    teacher = checkbox_to_bool(teacher)
+  teacher = checkbox_to_bool(teacher)
 
-    p teacher
+  p teacher
 
-    db = load_db("databas")
+  db = load_db("databas")
 
-    usernames = db.execute("SELECT name FROM users")
-    username_list = []
+  usernames = db.execute("SELECT name FROM users")
+  username_list = []
 
-    usernames.each do |name|
-        username_list << name["username"]
-    end
+  usernames.each do |name|
+    username_list << name["username"]
+  end
 
-    if password == password_confirm && username != "" && password != "" && !username_list.include?(username)
-        password_digest = BCrypt::Password.create(password)
-        db = SQLite3::Database.new("db/databas.db")
-        db.execute("INSERT INTO users (name, pwd_digest, teacher) VALUES (?, ?, ?)", [username, password_digest])
-        session[:user_message] = "User created!"
-    else
-        session[:user_message] = "Incorrect password or username already exists"
-    end
+  if password == password_confirm && username != "" && password != "" && !username_list.include?(username)
+    password_digest = BCrypt::Password.create(password)
+    db = SQLite3::Database.new("db/databas.db")
+    db.execute("INSERT INTO users (name, pwd_digest, teacher) VALUES (?, ?, ?)", [username, password_digest])
+    session[:user_message] = "User created!"
+  else
+    session[:user_message] = "Incorrect password or username already exists"
+  end
 
-    session.delete(:login_message)
+  session.delete(:login_message)
 
-    redirect("/")
+  redirect("/")
 end
 
 
 post("/user/:id/delete") do 
-    user_id = params[:id]
+  user_id = params[:id]
 
-    db = SQLite3::Database.new("db/databas.db")
-    db.execute("DELETE FROM users WHERE id = ?", user_id)
+  db = SQLite3::Database.new("db/databas.db")
+  db.execute("DELETE FROM users WHERE id = ?", user_id)
 
-    session.clear
-    redirect("/")
+  session.clear
+  redirect("/")
 end
 
 
 post("/user_room_rel") do
+  db = load_db("databas")
+  
+  bookings = db.execute("SELECT * FROM user_room_rel")
+
   room = params[:room]
   booking_category = params[:booking_category]
   reason = params[:reason]
@@ -163,9 +167,27 @@ post("/user_room_rel") do
     i.gsub!("T", "-").gsub!(":", "-")
   end
 
-  #kolla om klassrummet är bokat samma tid, om inte: boka det
+  start_time_object = iso_time_object(start_time)
+  end_time_object = iso_time_object(end_time)
+
+  bookings.each do |booking|
+    if !(booking["r_id"] == room && iso_time_object(booking["start_time"]) <= end_time_object && start_time_object <= iso_time_object(booking["end_time"]))
+      db.execute("INSERT INTO user_room_rel (u_id, r_id, reason, start_time, end_time, booking_category) VALUES (?, ?, ?, ?, ?, ?)", [user_id, room, reason, start_time, end_time, booking_category])
+      break
+    end
+  end
 
   redirect("/index")
+end
+
+
+post("/user_room_rel/:id/delete") do
+  booking_id = params[:id]
+
+  db = SQLite3::Database.new("db/databas.db")
+  db.execute("DELETE FROM user_room_rel WHERE booking_id = ?", booking_id)
+
+  redirect("index")
 end
 
 
@@ -181,6 +203,7 @@ post("/rooms/search") do
   end
   bookings = sort_booking_arr(unfrozen_bookings)
 
+  # DETTA BORDE LA VARA @ ISTÄLLET??
   session[:bookings] = bookings
 
   redirect("/index")
