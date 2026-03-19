@@ -58,6 +58,18 @@ def checkbox_to_bool(inp)
 end
 
 
+def time_overlap(a_start, a_end, b_start, b_end)
+  return a_start < b_end && b_start < a_end
+end
+
+
+before('/index') do
+  if session[:user] == nil
+    redirect("/")
+  end
+end
+
+
 get("/") do
   slim(:login)
 end
@@ -70,6 +82,20 @@ get("/index") do
   @booking_category = db.execute("SELECT * FROM booking_category")
 
   slim(:index)
+end
+
+
+get("/user_room_rel/:id/edit") do
+  db = load_db("databas")
+  id = params[:id]
+
+  session.delete(:user_message)
+
+  @rooms = db.execute("SELECT * FROM rooms")
+  @booking_category = db.execute("SELECT * FROM booking_category")
+  @booking = db.execute("SELECT user_room_rel.booking_id, rooms.name AS room_name, users.name AS user_name, user_room_rel.reason, user_room_rel.start_time, user_room_rel.end_time, booking_category.category FROM user_room_rel INNER JOIN rooms ON user_room_rel.r_id = rooms.id INNER JOIN users ON user_room_rel.u_id = users.id INNER JOIN booking_category ON user_room_rel.booking_category = booking_category.id WHERE user_room_rel.booking_id = ?", id).first
+
+  slim(:edit)
 end
 
 
@@ -110,11 +136,8 @@ post("/user/add") do
   password = params[:password]
   password_confirm = params[:password_confirm]
   teacher = params[:teacher]
-  p teacher
 
   teacher = checkbox_to_bool(teacher)
-
-  p teacher
 
   db = load_db("databas")
 
@@ -153,15 +176,15 @@ end
 
 post("/user_room_rel") do
   db = load_db("databas")
-  
-  bookings = db.execute("SELECT * FROM user_room_rel")
 
-  room = params[:room]
+  room_id = params[:room]
   booking_category = params[:booking_category]
   reason = params[:reason]
   start_time = params[:start_time]
   end_time = params[:end_time]
   user_id = session[:user]["id"]
+
+  bookings = db.execute("SELECT * FROM user_room_rel WHERE r_id = ?", room_id)
 
   for i in [start_time, end_time]
     i.gsub!("T", "-").gsub!(":", "-")
@@ -171,12 +194,71 @@ post("/user_room_rel") do
   end_time_object = iso_time_object(end_time)
 
   bookings.each do |booking|
-    if !(booking["r_id"] == room && iso_time_object(booking["start_time"]) <= end_time_object && start_time_object <= iso_time_object(booking["end_time"]))
-      db.execute("INSERT INTO user_room_rel (u_id, r_id, reason, start_time, end_time, booking_category) VALUES (?, ?, ?, ?, ?, ?)", [user_id, room, reason, start_time, end_time, booking_category])
-      break
+    if time_overlap(iso_time_object(booking["start_time"]), iso_time_object(booking["end_time"]), start_time_object, end_time_object) == false 
+      db.execute("INSERT INTO user_room_rel (u_id, r_id, reason, start_time, end_time, booking_category) VALUES (?, ?, ?, ?, ?, ?)", [user_id, room_id, reason, start_time, end_time, booking_category])
+      
+      session[:user_message] = "Room booked!"
+      redirect("/index")
     end
   end
 
+  if bookings.length == 0
+    db.execute("INSERT INTO user_room_rel (u_id, r_id, reason, start_time, end_time, booking_category) VALUES (?, ?, ?, ?, ?, ?)", [user_id, room_id, reason, start_time, end_time, booking_category])
+      
+    session[:user_message] = "Room booked!"
+    redirect("/index")
+
+  end
+
+
+  session[:user_message] = "This room is already booked during this time."
+  redirect("/index")
+end
+
+
+post("/user_room_rel/:id/update") do
+  db = load_db("databas")
+
+  booking_id = params[:id]
+  room_id = params[:room]
+  booking_category = params[:booking_category]
+  reason = params[:reason]
+  start_time = params[:start_time]
+  end_time = params[:end_time]
+  user_id = session[:user]["id"]
+
+  bookings = db.execute("SELECT * FROM user_room_rel WHERE r_id = ?", room_id)
+
+  for i in [start_time, end_time]
+    i.gsub!("T", "-").gsub!(":", "-")
+  end
+
+  start_time_object = iso_time_object(start_time)
+  end_time_object = iso_time_object(end_time)
+
+  bookings.each do |booking|
+    if time_overlap(iso_time_object(booking["start_time"]), iso_time_object(booking["end_time"]), start_time_object, end_time_object) == false 
+      db.execute("UPDATE user_room_rel SET r_id = ?, reason = ?, start_time = ?, end_time = ?, booking_category = ? WHERE booking_id = ?", [room_id, reason, start_time, end_time, booking_category, booking_id])
+
+      session.delete(:user_message)
+      redirect("/index")
+    end
+  end
+
+  if bookings.length == 0
+    db.execute("UPDATE user_room_rel SET r_id = ?, reason = ?, start_time = ?, end_time = ?, booking_category = ? WHERE booking_id = ?", [room_id, reason, start_time, end_time, booking_category, booking_id])
+      
+    session[:user_message] = "Room booked!"
+    redirect("/index")
+
+  end
+
+  session[:user_message] = "This room is already booked during this time."
+  redirect("/user_room_rel/#{booking_id}/edit")
+end
+
+
+post("/user_room_rel/cancel_edit") do
   redirect("/index")
 end
 
@@ -203,7 +285,6 @@ post("/rooms/search") do
   end
   bookings = sort_booking_arr(unfrozen_bookings)
 
-  # DETTA BORDE LA VARA @ ISTÄLLET??
   session[:bookings] = bookings
 
   redirect("/index")

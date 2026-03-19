@@ -26,7 +26,8 @@ section
 
         input type="submit" value="Book!"
 
-    br 
+    br
+    p #{session[:user_message]}
     hr
 
 
@@ -44,9 +45,12 @@ section
             p Booked by #{booking["user_name"]} for use in #{booking["reason"]} between #{booking["start_time"]} and #{booking["end_time"]}.
             p Category: #{booking["category"]}
 
-            form action="/user_room_rel/#{booking["booking_id"]}/delete" method="post" 
-                input type="submit" value="Delete"
-            
+            - if booking["user_name"] == session[:user]["name"]
+                form action="/user_room_rel/#{booking["booking_id"]}/edit" method="get" 
+                    input type="submit" value="Edit" 
+
+                form action="/user_room_rel/#{booking["booking_id"]}/delete" method="post" 
+                    input type="submit" value="Delete"
             hr
             br
 

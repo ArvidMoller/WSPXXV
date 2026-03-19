@@ -1,0 +1,29 @@
+h2 Edit your booking
+
+- p @booking
+form action="/user_room_rel/#{@booking["booking_id"]}/update" method="post"
+    select name="room" id="room"
+        option value="" selected="selected" disabled="selected" Select room
+        - @rooms.each do |room|
+            option value="#{room["id"]}" #{room["name"]}
+
+    select name="booking_category" id="booking_category"
+        option value="" selected="selected" disabled="selected" Select category
+        - @booking_category.each do |category|
+            option value="#{category["id"]}" #{category["category"]}
+    
+    input type="text" name="reason" placeholder="Reason for booking"
+
+    label  Start time: 
+    input type="datetime-local" name="start_time"
+
+    label  End time: 
+    input type="datetime-local" name="end_time"
+
+    input type="submit" value="Update"
+
+form action="/user_room_rel/cancel_edit" method="post"
+    input type="submit" value="Cancel edit"
+
+br
+p #{session[:user_message]}
