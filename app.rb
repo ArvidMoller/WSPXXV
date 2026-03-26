@@ -63,6 +63,32 @@ def time_overlap(a_start, a_end, b_start, b_end)
 end
 
 
+def search_bookings(databas, query)
+  db = load_db(databas)
+
+  bookings = db.execute("SELECT user_room_rel.booking_id, rooms.name AS room_name, users.name AS user_name, user_room_rel.reason, user_room_rel.start_time, user_room_rel.end_time, booking_category.category FROM user_room_rel INNER JOIN rooms ON user_room_rel.r_id = rooms.id INNER JOIN users ON user_room_rel.u_id = users.id INNER JOIN booking_category ON user_room_rel.booking_category = booking_category.id  WHERE rooms.name LIKE ?", "%#{query}%")
+
+  unfrozen_bookings = Array.new()
+  for i in bookings
+    unfrozen_bookings << i
+  end
+  bookings = sort_booking_arr(unfrozen_bookings)
+
+  session[:bookings] = bookings
+end
+
+
+def remomve_old(db)
+  bookings = db.execute("SELECT booking_id, end_time FROM user_room_rel")
+
+  bookings.each do |booking|
+    if iso_time_object(booking["end_time"]) < Time.new
+      db.execute("DELETE FROM user_room_rel WHERE booking_id = ?", booking["booking_id"])
+    end
+  end
+end
+
+
 before('/index') do
   if session[:user] == nil
     redirect("/")
@@ -77,6 +103,7 @@ end
 
 get("/index") do
   db = load_db("databas")
+  remomve_old(db)
 
   @rooms = db.execute("SELECT * FROM rooms")
   @booking_category = db.execute("SELECT * FROM booking_category")
@@ -100,6 +127,8 @@ end
 
 
 post("/login") do
+  sleep(0.5)
+
   db = load_db("databas")
 
   session.delete(:user_message)
@@ -112,6 +141,7 @@ post("/login") do
     user = db.execute("SELECT * FROM users WHERE name = ?", [username]).first
     if user != nil && BCrypt::Password.new(user["pwd_digest"]) == password
       session[:user] = user
+      search_bookings("databas", "")
       redirect("/index")
     else
       session[:login_message] = "Incorrect username or password"
@@ -151,7 +181,7 @@ post("/user/add") do
   if password == password_confirm && username != "" && password != "" && !username_list.include?(username)
     password_digest = BCrypt::Password.create(password)
     db = SQLite3::Database.new("db/databas.db")
-    db.execute("INSERT INTO users (name, pwd_digest, teacher) VALUES (?, ?, ?)", [username, password_digest])
+    db.execute("INSERT INTO users (name, pwd_digest, teacher) VALUES (?, ?, ?)", [username, password_digest, teacher])
     session[:user_message] = "User created!"
   else
     session[:user_message] = "Incorrect password or username already exists"
@@ -193,25 +223,28 @@ post("/user_room_rel") do
   start_time_object = iso_time_object(start_time)
   end_time_object = iso_time_object(end_time)
 
-  bookings.each do |booking|
-    if time_overlap(iso_time_object(booking["start_time"]), iso_time_object(booking["end_time"]), start_time_object, end_time_object) == false 
+  if start_time_object > Time.new
+    bookings.each do |booking|
+      if time_overlap(iso_time_object(booking["start_time"]), iso_time_object(booking["end_time"]), start_time_object, end_time_object) == false 
+        db.execute("INSERT INTO user_room_rel (u_id, r_id, reason, start_time, end_time, booking_category) VALUES (?, ?, ?, ?, ?, ?)", [user_id, room_id, reason, start_time, end_time, booking_category])
+        
+        session[:user_message] = "Room booked!"
+        search_bookings("databas", "")
+        redirect("/index")
+      end
+    end
+
+    if bookings.length == 0
       db.execute("INSERT INTO user_room_rel (u_id, r_id, reason, start_time, end_time, booking_category) VALUES (?, ?, ?, ?, ?, ?)", [user_id, room_id, reason, start_time, end_time, booking_category])
-      
+        
       session[:user_message] = "Room booked!"
+      search_bookings("databas", "")
       redirect("/index")
+
     end
   end
 
-  if bookings.length == 0
-    db.execute("INSERT INTO user_room_rel (u_id, r_id, reason, start_time, end_time, booking_category) VALUES (?, ?, ?, ?, ?, ?)", [user_id, room_id, reason, start_time, end_time, booking_category])
-      
-    session[:user_message] = "Room booked!"
-    redirect("/index")
-
-  end
-
-
-  session[:user_message] = "This room is already booked during this time."
+  session[:user_message] = "The room is not avalible during this time."
   redirect("/index")
 end
 
@@ -236,24 +269,28 @@ post("/user_room_rel/:id/update") do
   start_time_object = iso_time_object(start_time)
   end_time_object = iso_time_object(end_time)
 
-  bookings.each do |booking|
-    if time_overlap(iso_time_object(booking["start_time"]), iso_time_object(booking["end_time"]), start_time_object, end_time_object) == false 
-      db.execute("UPDATE user_room_rel SET r_id = ?, reason = ?, start_time = ?, end_time = ?, booking_category = ? WHERE booking_id = ?", [room_id, reason, start_time, end_time, booking_category, booking_id])
+  if start_time_object > Time.new
+    bookings.each do |booking|
+      if time_overlap(iso_time_object(booking["start_time"]), iso_time_object(booking["end_time"]), start_time_object, end_time_object) == false 
+        db.execute("UPDATE user_room_rel SET r_id = ?, reason = ?, start_time = ?, end_time = ?, booking_category = ? WHERE booking_id = ?", [room_id, reason, start_time, end_time, booking_category, booking_id])
 
-      session.delete(:user_message)
+        session.delete(:user_message)
+        search_bookings("databas", "")
+        redirect("/index")
+      end
+    end
+
+    if bookings.length == 0
+      db.execute("UPDATE user_room_rel SET r_id = ?, reason = ?, start_time = ?, end_time = ?, booking_category = ? WHERE booking_id = ?", [room_id, reason, start_time, end_time, booking_category, booking_id])
+        
+      session[:user_message] = "Room booked!"
+      search_bookings("databas", "")
       redirect("/index")
+
     end
   end
 
-  if bookings.length == 0
-    db.execute("UPDATE user_room_rel SET r_id = ?, reason = ?, start_time = ?, end_time = ?, booking_category = ? WHERE booking_id = ?", [room_id, reason, start_time, end_time, booking_category, booking_id])
-      
-    session[:user_message] = "Room booked!"
-    redirect("/index")
-
-  end
-
-  session[:user_message] = "This room is already booked during this time."
+  session[:user_message] = "The room is not avalible during this time."
   redirect("/user_room_rel/#{booking_id}/edit")
 end
 
@@ -269,23 +306,16 @@ post("/user_room_rel/:id/delete") do
   db = SQLite3::Database.new("db/databas.db")
   db.execute("DELETE FROM user_room_rel WHERE booking_id = ?", booking_id)
 
-  redirect("index")
+  search_bookings("databas", "")
+
+  redirect("/index")
 end
 
 
 post("/rooms/search") do
-  db = load_db("databas")
   query = params[:query]
 
-  bookings = db.execute("SELECT user_room_rel.booking_id, rooms.name AS room_name, users.name AS user_name, user_room_rel.reason, user_room_rel.start_time, user_room_rel.end_time, booking_category.category FROM user_room_rel INNER JOIN rooms ON user_room_rel.r_id = rooms.id INNER JOIN users ON user_room_rel.u_id = users.id INNER JOIN booking_category ON user_room_rel.booking_category = booking_category.id  WHERE rooms.name LIKE ?", "%#{query}%")
-
-  unfrozen_bookings = Array.new()
-  for i in bookings
-    unfrozen_bookings << i
-  end
-  bookings = sort_booking_arr(unfrozen_bookings)
-
-  session[:bookings] = bookings
+  search_bookings("databas", query)
 
   redirect("/index")
 end

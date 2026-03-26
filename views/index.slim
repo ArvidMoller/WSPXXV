@@ -45,7 +45,7 @@ section
             p Booked by #{booking["user_name"]} for use in #{booking["reason"]} between #{booking["start_time"]} and #{booking["end_time"]}.
             p Category: #{booking["category"]}
 
-            - if booking["user_name"] == session[:user]["name"]
+            - if booking["user_name"] == session[:user]["name"] || session[:user]["teacher"] == 1
                 form action="/user_room_rel/#{booking["booking_id"]}/edit" method="get" 
                     input type="submit" value="Edit" 
 
