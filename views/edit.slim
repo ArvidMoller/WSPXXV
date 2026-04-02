@@ -3,16 +3,20 @@ h2 Edit your booking
 - p @booking
 form action="/user_room_rel/#{@booking["booking_id"]}/update" method="post"
     select name="room" id="room"
-        option value="" selected="selected" disabled="selected" Select room
         - @rooms.each do |room|
-            option value="#{room["id"]}" #{room["name"]}
+            - if room == @booking["room"]
+                option value="#{room["id"]}" #{room["name"]} selected
+            - else
+                option value="#{room["id"]}" #{room["name"]}
 
     select name="booking_category" id="booking_category"
-        option value="" selected="selected" disabled="selected" Select category
         - @booking_category.each do |category|
-            option value="#{category["id"]}" #{category["category"]}
+            - if category == @booking["category"]
+                    option value="#{category["id"]}" #{category["category"]} selected
+            - else
+                option value="#{category["id"]}" #{category["category"]}
     
-    input type="text" name="reason" placeholder="Reason for booking"
+    input type="text" name="reason" value="#{@booking["reason"]}"
 
     label  Start time: 
     input type="datetime-local" name="start_time"
