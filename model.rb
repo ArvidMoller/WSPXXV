@@ -22,12 +22,12 @@ module Model
   # Joins the user_room_rel, rooms, users, and booking_category tables to return
   # a complete view of each booking.
   #
+  # @param db [SQLite3::Database] an open database connection
   # @param query [String] a search string matched against room names using SQL LIKE;
   #   pass an empty string to return all bookings
-  # @param db [SQLite3::Database] an open database connection
   # @return [Array<Hash>] an array of booking hashes with keys: booking_id, room_name,
   #   user_name, reason, start_time, end_time, category
-  def get_bookings(query, db)
+  def get_bookings(db, query)
     bookings = db.execute("SELECT user_room_rel.booking_id, rooms.name AS room_name, users.name AS user_name, user_room_rel.reason, user_room_rel.start_time, user_room_rel.end_time, booking_category.category FROM user_room_rel INNER JOIN rooms ON user_room_rel.r_id = rooms.id INNER JOIN users ON user_room_rel.u_id = users.id INNER JOIN booking_category ON user_room_rel.booking_category = booking_category.id  WHERE rooms.name LIKE ?", "%#{query}%")
 
     return bookings
@@ -61,6 +61,7 @@ module Model
 
   # Inserts a new booking record into the user_room_rel table.
   #
+  # @param db [SQLite3::Database] an open database connection
   # @param user_id [Integer] the ID of the user making the booking
   # @param room_id [Integer] the ID of the room being booked
   # @param reason [String] the reason or description for the booking
@@ -68,7 +69,7 @@ module Model
   # @param end_time [String] the booking end time in "YYYY-MM-DD-HH-MM-SS" format
   # @param booking_category [Integer] the ID of the booking category
   # @return [void]
-  def insert_bookings(user_id, room_id, reason, start_time, end_time, booking_category)
+  def insert_bookings(db, user_id, room_id, reason, start_time, end_time, booking_category)
     db.execute("INSERT INTO user_room_rel (u_id, r_id, reason, start_time, end_time, booking_category) VALUES (?, ?, ?, ?, ?, ?)", [user_id, room_id, reason, start_time, end_time, booking_category])
   end
 
@@ -118,29 +119,47 @@ module Model
 
   # Inserts a new user record into the users table.
   #
+  # @param db [SQLite3::Database] an open database connection
   # @param username [String] the username for the new account
   # @param password_digest [String] a BCrypt password digest of the user's password
   # @param teacher [Integer] 1 if the user is a teacher, 0 otherwise
   # @return [void]
-  def insert_user(username, password_digest, teacher)
+  def insert_user(db, username, password_digest, teacher)
     db.execute("INSERT INTO users (name, pwd_digest, teacher) VALUES (?, ?, ?)", [username, password_digest, teacher])
   end
 
 
   # Deletes a user record from the users table by ID.
   #
+  # @param db [SQLite3::Database] an open database connection
   # @param user_id [Integer] the ID of the user to delete
   # @return [void]
-  def delete_user(user_id)
+  def delete_user(db, user_id)
     db.execute("DELETE FROM users WHERE id = ?", user_id)
   end
 
 
   # Deletes a booking record from the user_room_rel table by ID.
   #
+  # @param db [SQLite3::Database] an open database connection
   # @param booking_id [Integer] the ID of the booking to delete
   # @return [void]
-  def delete_booking(booking_id)
+  def delete_booking(db, booking_id)
     db.execute("DELETE FROM user_room_rel WHERE booking_id = ?", booking_id)
+  end
+
+
+  # Updates a booking record from the user_room_rel table by ID.
+  #
+  # @param db [SQLite3::Database] an open database connection
+  # @param user_id [Integer] the ID of the user making the booking
+  # @param room_id [Integer] the ID of the room being booked
+  # @param reason [String] the reason or description for the booking
+  # @param start_time [String] the booking start time in "YYYY-MM-DD-HH-MM-SS" format
+  # @param end_time [String] the booking end time in "YYYY-MM-DD-HH-MM-SS" format
+  # @param booking_category [Integer] the ID of the booking category
+  # @return [void]
+  def update_booking(db, user_id, room_id, reason, start_time, end_time, booking_category, id)
+    db.execute("UPDATE user_room_rel SET u_id = ?, r_id = ?, reason = ?, start_time = ?, end_time = ?, booking_category = ? WHERE booking_id = ?", [user_id, room_id, reason, start_time, end_time, booking_category, id])
   end
 end

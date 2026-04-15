@@ -87,7 +87,7 @@ end
 def search_bookings(databas, query)
   db = load_db(databas)
 
-  bookings = get_bookings(query, db)
+  bookings = get_bookings(db, query)
 
   unfrozen_bookings = Array.new()
   for i in bookings
@@ -105,11 +105,11 @@ end
 # @param db [SQLite3::Database] an open database connection
 # @return [void]
 def remomve_old(db)
-  bookings = get_bookings("", db)
+  bookings = get_bookings(db, "")
 
   bookings.each do |booking|
     if iso_time_object(booking["end_time"]) < Time.new
-      delete_booking(booking["booking_id"])
+      delete_booking(db, booking["booking_id"])
     end
   end
 end
@@ -161,7 +161,7 @@ get("/user_room_rel/:id/edit") do
   db = load_db("databas")
   id = params[:id]
 
-  if session[:user_message] != "All fields are not filled in."
+  if !(session[:user_message] == "All fields are not filled in." || session[:user_message] == "Time for booking is not allowed.")
     session.delete(:user_message)
   end
 
@@ -246,7 +246,7 @@ post("/user/add") do
 
   if password == password_confirm && username != "" && password != "" && !username_list.include?(username)
     password_digest = BCrypt::Password.create(password)
-    insert_user(username, password_digest, teacher)
+    insert_user(db, username, password_digest, teacher)
     session[:user_message] = "User created!"
   else
     session[:user_message] = "Incorrect password or username already exists"
@@ -266,7 +266,7 @@ post("/user/:id/delete") do
   user_id = params[:id]
 
   db = load_db("databas")
-  delete_user(user_id)
+  delete_user(db, user_id)
 
   session.clear
   redirect("/")
@@ -307,10 +307,10 @@ post("/user_room_rel") do
   start_time_object = iso_time_object(start_time)
   end_time_object = iso_time_object(end_time)
 
-  if start_time_object > Time.new
+  if start_time_object > Time.new && end_time_object - start_time_object < 10*60*60 && start_time_object < end_time_object
     bookings.each do |booking|
       if time_overlap(iso_time_object(booking["start_time"]), iso_time_object(booking["end_time"]), start_time_object, end_time_object) == false
-        insert_bookings(user_id, room_id, reason, start_time, end_time, booking_category)
+        insert_bookings(db, user_id, room_id, reason, start_time, end_time, booking_category)
 
         session[:user_message] = "Room booked!"
         search_bookings("databas", "")
@@ -319,12 +319,14 @@ post("/user_room_rel") do
     end
 
     if bookings.length == 0
-      insert_bookings(user_id, room_id, reason, start_time, end_time, booking_category)
-
+      insert_bookings(db, user_id, room_id, reason, start_time, end_time, booking_category)
       session[:user_message] = "Room booked!"
       search_bookings("databas", "")
       redirect("/index")
     end
+  else
+    session[:user_message] = "Time for booking is not allowed."
+    redirect("/index")
   end
 
   session[:user_message] = "The room is not avalible during this time."
@@ -368,10 +370,10 @@ post("/user_room_rel/:id/update") do
   start_time_object = iso_time_object(start_time)
   end_time_object = iso_time_object(end_time)
 
-  if start_time_object > Time.new
+  if start_time_object > Time.new && end_time_object - start_time_object < 10*60*60 && start_time_object < end_time_object
     bookings.each do |booking|
       if time_overlap(iso_time_object(booking["start_time"]), iso_time_object(booking["end_time"]), start_time_object, end_time_object) == false
-        insert_bookings(user_id, room_id, reason, start_time, end_time, booking_category)
+        update_booking(db, user_id, room_id, reason, start_time, end_time, booking_category, booking_id)
 
         session.delete(:user_message)
         search_bookings("databas", "")
@@ -380,15 +382,20 @@ post("/user_room_rel/:id/update") do
     end
 
     if bookings.length == 0
-      insert_bookings(user_id, room_id, reason, start_time, end_time, booking_category)
+      update_booking(db, user_id, room_id, reason, start_time, end_time, booking_category, booking_id)
 
-      session[:user_message] = "Room booked!"
+      session.delete(:user_message)
       search_bookings("databas", "")
       redirect("/index")
     end
+  else
+    session[:user_message] = "Time for booking is not allowed."
+    p session[:user_message]
+    redirect("/user_room_rel/#{booking_id}/edit")
   end
 
   session[:user_message] = "The room is not avalible during this time."
+  p "The room is not avalible during this time."
   redirect("/user_room_rel/#{booking_id}/edit")
 end
 
@@ -409,7 +416,7 @@ post("/user_room_rel/:id/delete") do
   booking_id = params[:id]
 
   db = load_db("databas")
-  delete_booking(booking_id)
+  delete_booking(db, booking_id)
 
   search_bookings("databas", "")
 
