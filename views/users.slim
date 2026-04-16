@@ -1,0 +1,13 @@
+form action="/users/search" method="post"
+    input type="text" name="query" placeholder="Search user"
+    input type="submit" value="Search"
+
+hr
+
+- @users.each do |user|
+    p #{user["name"]}
+
+    form action="/user/#{user["id"]}/delete/admin" method="post"
+        input type="submit" value="Delete account"
+
+    hr

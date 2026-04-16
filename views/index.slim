@@ -1,7 +1,3 @@
-form action="/logout" method="post"
-    input type="submit" value="Logout"
-hr
-
 section
     h2 Book room
 
@@ -56,5 +52,5 @@ section
 
 
 h3 Delete account
-form action="/user/#{session[:user]["id"]}/delete" method="post"
+form action="/user/#{session[:user]["id"]}/delete/logout" method="post"
     input type="submit" value="Delete account"

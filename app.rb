@@ -9,6 +9,8 @@ enable :sessions
 
 include Model
 
+$login_attemps = 0
+
 # Sorts an array of booking hashes in ascending chronological order by start time.
 # Uses a recursive quicksort algorithm with the first element as the pivot.
 #
@@ -82,7 +84,7 @@ end
 # Queries bookings from the database, sorts them, and stores them in the session.
 #
 # @param databas [String] the name of the database file to load (without extension)
-# @param query [String] a search query string used to filter bookings
+# @param query [String] a search query string used to filter bookings by room name
 # @return [void]
 def search_bookings(databas, query)
   db = load_db(databas)
@@ -119,6 +121,8 @@ end
 
 # Before filter for the /index route.
 # Redirects unauthenticated users to the login page.
+#
+# @return [void]
 before('/index') do
   if session[:user] == nil
     redirect("/")
@@ -131,6 +135,7 @@ end
 # @!group Routes
 
 # Renders the login page.
+# Displays the login and user registration form.
 #
 # @return [String] rendered Slim template for the login view
 get("/") do
@@ -139,12 +144,13 @@ end
 
 
 # Renders the main index page with available rooms and booking categories.
-# Also removes expired bookings before rendering.
+# Also removes expired bookings before rendering and clears cached user search results.
 #
 # @return [String] rendered Slim template for the index view
 get("/index") do
   db = load_db("databas")
   remomve_old(db)
+  session.delete(:users)
 
   @rooms = get_rooms(db)
   @booking_category = get_categories(db)
@@ -153,10 +159,27 @@ get("/index") do
 end
 
 
-# Renders the edit page for a specific booking.
+# Renders the users management page with a list of all users.
+# Displays cached search results from the session if available, otherwise fetches all users.
 #
-# @param id [Integer] the ID of the booking to edit, provided as a URL parameter
-# @return [String] rendered Slim template for the edit view
+# @return [String] rendered Slim template for the users view
+get("/users") do
+  db = load_db("databas")
+
+  if session[:users] == nil
+    @users = get_users(db, "", "")
+  else
+    @users = session[:users]
+  end
+
+  slim(:users)
+end
+
+
+# Renders the edit page for a specific booking.
+# Prepopulates the form with the current booking details and available rooms and categories.
+#
+# @return [String] rendered Slim template for the edit booking view
 get("/user_room_rel/:id/edit") do
   db = load_db("databas")
   id = params[:id]
@@ -169,19 +192,38 @@ get("/user_room_rel/:id/edit") do
   @booking_category = get_categories(db)
   @booking = get_booking_on_id(db, id)
 
-  slim(:edit)
+  slim(:edit_booking)
+end
+
+
+# Renders the edit page for a specific user account.
+# Prepopulates the form with the current user's details.
+#
+# @return [String] rendered Slim template for the edit user view
+get("/user/:id/edit") do
+  id = params[:id]
+
+  db = load_db("databas")
+  session.delete(:users)
+
+  @users = get_users(db, id, "")
+
+  slim(:edit_user)
 end
 
 
 # Authenticates a user and creates a session on success.
-# Adds a 0.5 second delay to slow brute-force attempts.
-# Redirects to /index on success, or back to / with an error message on failure.
+# Verifies the username and password against the database using BCrypt.
+# Implements brute-force protection by adding a 5 second delay after 4 failed attempts.
+# Redirects to /index on successful authentication, or back to / with an error message on failure.
 #
-# @param username [String] the submitted username
-# @param password [String] the submitted plaintext password
 # @return [void]
 post("/login") do
-  sleep(0.5)
+  $login_attemps += 1
+
+  if $login_attemps > 4
+    sleep(5)
+  end
 
   db = load_db("databas")
 
@@ -195,6 +237,8 @@ post("/login") do
     user = get_user_on_username(db, username)
     if user != nil && BCrypt::Password.new(user["pwd_digest"]) == password
       session[:user] = user
+
+      $login_attemps = 0
       search_bookings("databas", "")
       redirect("/index")
     else
@@ -218,14 +262,11 @@ post("/logout") do
 end
 
 
-# Creates a new user account.
-# Validates that passwords match, that required fields are filled in, and that
-# the username is not already taken. Stores a BCrypt digest of the password.
+# Creates a new user account with the specified username, password, and permissions.
+# Validates that passwords match, that all required fields are filled in, and that
+# the username is not already in use. Stores a BCrypt digest of the password.
+# On success, displays a confirmation message; on failure, displays an error message.
 #
-# @param username [String] the desired username
-# @param password [String] the desired password
-# @param password_confirm [String] the password confirmation
-# @param teacher [String, nil] checkbox value; "on" if the user is a teacher
 # @return [void]
 post("/user/add") do
   username = params[:username]
@@ -237,11 +278,11 @@ post("/user/add") do
 
   db = load_db("databas")
 
-  usernames = get_users(db)
+  users = get_users(db, "", "")
   username_list = []
 
-  usernames.each do |name|
-    username_list << name["username"]
+  users.each do |user|
+    username_list << user["name"]
   end
 
   if password == password_confirm && username != "" && password != "" && !username_list.include?(username)
@@ -258,30 +299,60 @@ post("/user/add") do
 end
 
 
-# Deletes a user account and clears the current session.
+# Updates a user's password after validating that the two password entries match.
+# Stores a BCrypt digest of the new password in the database.
+# On success, displays a confirmation message; on failure, displays an error message.
 #
-# @param id [Integer] the ID of the user to delete, provided as a URL parameter
 # @return [void]
-post("/user/:id/delete") do
+post("/user/:id/update") do
+  id = params[:id]
+  password = params[:password]
+  password_confirm = params[:password_confirm]
+
+  db = load_db("databas")
+  session.delete(:user_message)
+
+  if password == password_confirm && password != ""
+    password_digest = BCrypt::Password.create(password)
+
+    update_password(db, id, password_digest)
+    session[:user_message] = "Password updated"
+  else
+    session[:user_message] = "Incorrect password"
+  end
+
+  redirect("/user/#{id}/edit")
+end
+
+
+# Deletes a user account from the database.
+# If the deleted user is the current logged-in user, clears the session and redirects to login.
+# If called from the admin users page, redirects back to the users management page.
+#
+# @return [void]
+post("/user/:id/delete/:info") do
   user_id = params[:id]
+  info = params[:info]
 
   db = load_db("databas")
   delete_user(db, user_id)
 
-  session.clear
-  redirect("/")
+  if info == "logout"
+    session.clear
+    redirect("/")
+  elsif info == "admin"
+    redirect("/users")
+  end
 end
 
 
 # Creates a new room booking if the requested time slot is available.
 # Validates that all required fields are present, that the start time is in the future,
+# that the booking duration is less than 10 hours, that the start time is before the end time,
 # and that the chosen room has no overlapping bookings.
+# On success, stores the booking and displays a confirmation message.
+# On failure, displays an appropriate error message.
 #
-# @param room [String] the ID of the room to book
-# @param booking_category [String] the category ID for the booking
-# @param reason [String] the reason or description for the booking
-# @param start_time [String] the booking start time in ISO 8601 datetime-local format
-# @param end_time [String] the booking end time in ISO 8601 datetime-local format
 # @return [void]
 post("/user_room_rel") do
   db = load_db("databas")
@@ -335,15 +406,12 @@ end
 
 
 # Updates an existing booking with new details, if the new time slot is available.
-# Validates required fields, checks that the start time is in the future, and ensures
-# no overlapping bookings exist for the chosen room.
+# Validates that all required fields are present, that the start time is in the future,
+# that the booking duration is less than 10 hours, that the start time is before the end time,
+# and that no overlapping bookings exist for the chosen room.
+# On success, updates the booking and displays a confirmation message.
+# On failure, displays an appropriate error message.
 #
-# @param id [Integer] the ID of the booking to update, provided as a URL parameter
-# @param room [String] the ID of the room to book
-# @param booking_category [String] the category ID for the booking
-# @param reason [String] the reason or description for the booking
-# @param start_time [String] the new start time in ISO 8601 datetime-local format
-# @param end_time [String] the new end time in ISO 8601 datetime-local format
 # @return [void]
 post("/user_room_rel/:id/update") do
   db = load_db("databas")
@@ -408,9 +476,8 @@ post("/user_room_rel/cancel_edit") do
 end
 
 
-# Deletes a booking and refreshes the session's booking list.
+# Deletes a booking from the database and refreshes the session's booking list.
 #
-# @param id [Integer] the ID of the booking to delete, provided as a URL parameter
 # @return [void]
 post("/user_room_rel/:id/delete") do
   booking_id = params[:id]
@@ -424,9 +491,9 @@ post("/user_room_rel/:id/delete") do
 end
 
 
-# Searches bookings by a query string, stores results in the session, and redirects to index.
+# Searches for bookings by a query string, stores results in the session, and redirects to the index page.
+# Uses the query to filter bookings by room name.
 #
-# @param query [String] the search query to filter bookings by
 # @return [void]
 post("/rooms/search") do
   query = params[:query]
@@ -434,6 +501,20 @@ post("/rooms/search") do
   search_bookings("databas", query)
 
   redirect("/index")
+end
+
+
+# Searches for users by a query string, stores results in the session, and redirects to the users page.
+# Uses the query to filter users by username.
+#
+# @return [void]
+post("/users/search") do
+  query = params[:query]
+  db = load_db("databas")
+
+  session[:users] = get_users(db, "", query)
+
+  redirect("/users")
 end
 
 # @!endgroup

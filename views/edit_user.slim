@@ -1,0 +1,11 @@
+h2 Profile
+
+p #{session[:user]["name"]}
+
+form action="/user/#{session[:user]["id"]}/update" method="post"
+    input type="password" name="password" placeholder="Password"
+    input type="password" name="password_confirm" placeholder="Confirm password"
+
+    input type="submit" value="Update password"
+
+p #{session[:user_message]}

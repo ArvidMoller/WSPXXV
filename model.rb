@@ -4,7 +4,6 @@ require 'sqlite3'
 # It is intended to be included in the Sinatra application and interacts with an
 # SQLite3 database containing users, rooms, bookings, and booking categories.
 module Model
-
   # Opens a connection to the specified SQLite3 database and configures it to
   # return results as hashes.
   #
@@ -13,6 +12,7 @@ module Model
   def load_db(name)
     db = SQLite3::Database.new("db/#{name}.db")
     db.results_as_hash = true
+    db.execute("PRAGMA foreign_keys = ON")
 
     return db
   end
@@ -35,7 +35,8 @@ module Model
 
 
   # Retrieves a single booking by its ID.
-  # Joins the user_room_rel, rooms, users, and booking_category tables.
+  # Joins the user_room_rel, rooms, users, and booking_category tables to provide
+  # complete booking information.
   #
   # @param db [SQLite3::Database] an open database connection
   # @param id [Integer] the booking ID to look up
@@ -65,8 +66,8 @@ module Model
   # @param user_id [Integer] the ID of the user making the booking
   # @param room_id [Integer] the ID of the room being booked
   # @param reason [String] the reason or description for the booking
-  # @param start_time [String] the booking start time in "YYYY-MM-DD-HH-MM-SS" format
-  # @param end_time [String] the booking end time in "YYYY-MM-DD-HH-MM-SS" format
+  # @param start_time [String] the booking start time in "YYYY-MM-DD HH:MM:SS" format
+  # @param end_time [String] the booking end time in "YYYY-MM-DD HH:MM:SS" format
   # @param booking_category [Integer] the ID of the booking category
   # @return [void]
   def insert_bookings(db, user_id, room_id, reason, start_time, end_time, booking_category)
@@ -77,7 +78,8 @@ module Model
   # Retrieves all rooms from the rooms table.
   #
   # @param db [SQLite3::Database] an open database connection
-  # @return [Array<Hash>] an array of room hashes containing all columns from the rooms table
+  # @return [Array<Hash>] an array of room hashes containing all columns from the
+  #   rooms table
   def get_rooms(db)
     rooms = db.execute("SELECT * FROM rooms")
     return rooms
@@ -95,12 +97,23 @@ module Model
   end
 
 
-  # Retrieves the name of every registered user.
+  # Retrieves users from the users table, either by ID or by name search query.
+  # If an ID is provided, returns a single user; otherwise returns all users whose
+  # name matches the search query using SQL LIKE.
   #
   # @param db [SQLite3::Database] an open database connection
-  # @return [Array<Hash>] an array of hashes each containing a single "name" key
-  def get_users(db)
-    users = db.execute("SELECT name FROM users")
+  # @param id [String] the user ID to look up; pass an empty string to search by name instead
+  # @param query [String] a search string matched against user names using SQL LIKE;
+  #   ignored if id is provided
+  # @return [Hash, Array<Hash>, nil] a single user hash if id is provided and found;
+  #   an array of user hashes if searching by query; or nil if id is provided but not found
+  def get_users(db, id, query)
+    if id == ""
+      users = db.execute("SELECT * FROM users WHERE name LIKE ?", "%#{query}%")
+    else
+      users = db.execute("SELECT * FROM users WHERE id = ?", id).first
+    end
+
     return users
   end
 
@@ -149,17 +162,28 @@ module Model
   end
 
 
-  # Updates a booking record from the user_room_rel table by ID.
+  # Updates an existing booking record in the user_room_rel table.
   #
   # @param db [SQLite3::Database] an open database connection
   # @param user_id [Integer] the ID of the user making the booking
   # @param room_id [Integer] the ID of the room being booked
   # @param reason [String] the reason or description for the booking
-  # @param start_time [String] the booking start time in "YYYY-MM-DD-HH-MM-SS" format
-  # @param end_time [String] the booking end time in "YYYY-MM-DD-HH-MM-SS" format
+  # @param start_time [String] the booking start time in "YYYY-MM-DD HH:MM:SS" format
+  # @param end_time [String] the booking end time in "YYYY-MM-DD HH:MM:SS" format
   # @param booking_category [Integer] the ID of the booking category
+  # @param id [Integer] the booking ID to update
   # @return [void]
   def update_booking(db, user_id, room_id, reason, start_time, end_time, booking_category, id)
     db.execute("UPDATE user_room_rel SET u_id = ?, r_id = ?, reason = ?, start_time = ?, end_time = ?, booking_category = ? WHERE booking_id = ?", [user_id, room_id, reason, start_time, end_time, booking_category, id])
+  end
+
+  # Updates a user's password digest in the users table.
+  #
+  # @param db [SQLite3::Database] an open database connection
+  # @param id [Integer] the ID of the user whose password to update
+  # @param pwd_digest [String] a BCrypt password digest of the new password
+  # @return [void]
+  def update_password(db, id, pwd_digest)
+    db.execute("UPDATE users SET pwd_digest = ? WHERE id = ?", [pwd_digest, id])
   end
 end
