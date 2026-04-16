@@ -38,7 +38,6 @@ section
     - if bookings != nil
         - bookings.each do |booking|
             - @rooms.each do |room|
-                - p "#{room["name"]} | #{booking["room_name"]}"
                 - if room["name"] == booking["room_name"]
                     - $category = room["category"]
                     - break
