@@ -37,7 +37,13 @@ section
     - bookings = session[:bookings]
     - if bookings != nil
         - bookings.each do |booking|
-            h3 #{booking["room_name"]}
+            - @rooms.each do |room|
+                - p "#{room["name"]} | #{booking["room_name"]}"
+                - if room["name"] == booking["room_name"]
+                    - $category = room["category"]
+                    - break
+
+            h3 #{booking["room_name"]} (#{$category})
             p Booked by #{booking["user_name"]} for use in #{booking["reason"]} between #{booking["start_time"]} and #{booking["end_time"]}.
             p Category: #{booking["category"]}
 

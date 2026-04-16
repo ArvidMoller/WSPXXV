@@ -458,12 +458,10 @@ post("/user_room_rel/:id/update") do
     end
   else
     session[:user_message] = "Time for booking is not allowed."
-    p session[:user_message]
     redirect("/user_room_rel/#{booking_id}/edit")
   end
 
   session[:user_message] = "The room is not avalible during this time."
-  p "The room is not avalible during this time."
   redirect("/user_room_rel/#{booking_id}/edit")
 end
 

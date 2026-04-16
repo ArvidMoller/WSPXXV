@@ -81,7 +81,8 @@ module Model
   # @return [Array<Hash>] an array of room hashes containing all columns from the
   #   rooms table
   def get_rooms(db)
-    rooms = db.execute("SELECT * FROM rooms")
+    rooms = db.execute("SELECT rooms.id, rooms.name, room_category.category FROM room_category_rel INNER JOIN rooms ON rooms.id = room_category_rel.r_id INNER JOIN room_category ON room_category.id = room_category_rel.c_id")
+
     return rooms
   end
 
