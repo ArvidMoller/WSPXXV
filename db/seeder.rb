@@ -102,10 +102,6 @@ def populate_tables(db)
 
   db.execute('INSERT INTO booking_category (category) VALUES ("Lektion")')
   db.execute('INSERT INTO booking_category (category) VALUES ("Klubbverksamhet")')
-  
-  # Bokningar
-  db.execute('INSERT INTO user_room_rel (u_id, r_id, reason, start_time, end_time, booking_category) VALUES (1, 1, "Kemilektion", "2022-10-18-15-00-00", "2022-10-18-16-00-00", 1)')
-  db.execute('INSERT INTO user_room_rel (u_id, r_id, reason, start_time, end_time, booking_category) VALUES (2, 2, "Filmklubb-möte", "2023-01-20-15-00-00", "2023-01-20-16-00-00", 2)')
 
   db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (1, 3)')
   db.execute('INSERT INTO room_category_rel (r_id, c_id) VALUES (2, 1)')
