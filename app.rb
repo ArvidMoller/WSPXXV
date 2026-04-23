@@ -117,6 +117,19 @@ def remomve_old(db)
 end
 
 
+def check_user_on_bookings(db, booking_id)
+  u_id_booking = db.execute("SELECT u_id FROM user_room_rel WHERE booking_id = ?", booking_id).first
+  if u_id_booking.class != "i"
+    u_id_booking = u_id_booking["u_id"]
+  end
+
+  if session[:user]["id"] != u_id_booking
+    p "User ID: #{session[:user]["id"]} | Booking ID: #{u_id_booking}"
+    redirect("/index")
+  end
+end
+
+
 # @!group Filters
 
 # Before filter for the /index route.
@@ -192,7 +205,7 @@ get("/user_room_rel/:id/edit") do
   @booking_category = get_categories(db)
   @booking = get_booking_on_id(db, id)
 
-  slim(:edit_booking)
+  slim(:"user_room_rel/edit")
 end
 
 
@@ -208,7 +221,7 @@ get("/user/:id/edit") do
 
   @users = get_users(db, id, "")
 
-  slim(:edit_user)
+  slim(:"users/edit")
 end
 
 
@@ -312,6 +325,12 @@ post("/user/:id/update") do
   db = load_db("databas")
   session.delete(:user_message)
 
+  if session[:user]["id"] != id.to_i
+    p "#{session[:user]["id"]} | #{id}"
+    session[:user_message] = "An error has occured"
+    redirect("/user/#{id}/edit")
+  end
+
   if password == password_confirm && password != ""
     password_digest = BCrypt::Password.create(password)
 
@@ -331,17 +350,20 @@ end
 #
 # @return [void]
 post("/user/:id/delete/:info") do
+  db = load_db("databas")
+
   user_id = params[:id]
   info = params[:info]
 
-  db = load_db("databas")
-  delete_user(db, user_id)
-
-  if info == "logout"
+  if info == "logout" && session[:user]["id"] == user_id
+    delete_user(db, user_id)
     session.clear
     redirect("/")
-  elsif info == "admin"
+  elsif info == "admin" && session[:user]["teacher"] == 1
+    delete_user(db, user_id)
     redirect("/users")
+  else
+    redirect("/index")
   end
 end
 
@@ -424,6 +446,8 @@ post("/user_room_rel/:id/update") do
   end_time = params[:end_time]
   user_id = session[:user]["id"]
 
+  check_user_on_bookings(db, booking_id)
+  
   if room_id == nil || booking_category == nil || reason == "" || start_time == "" || end_time == ""
     session[:user_message] = "All fields are not filled in."
     redirect("/user_room_rel/#{booking_id}/edit")
@@ -479,8 +503,9 @@ end
 # @return [void]
 post("/user_room_rel/:id/delete") do
   booking_id = params[:id]
-
   db = load_db("databas")
+
+  check_user_on_bookings(db, booking_id)
   delete_booking(db, booking_id)
 
   search_bookings("databas", "")
